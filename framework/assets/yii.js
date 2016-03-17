@@ -16,7 +16,7 @@
  *
  * A module may be structured as follows:
  *
- * ~~~
+ * ```javascript
  * yii.sample = (function($) {
  *     var pub = {
  *         // whether this module is currently active. If false, init() will not be called for this module
@@ -33,7 +33,7 @@
  *
  *     return pub;
  * })(jQuery);
- * ~~~
+ * ```
  *
  * Using this structure, you can define public and private functions/properties for a module.
  * Private functions/properties are only visible within the module, while public functions/properties
@@ -144,8 +144,8 @@ yii = (function ($) {
          * @param $e the jQuery representation of the element
          */
         handleAction: function ($e, event) {
-            var method = $e.data('method'),
-                $form = $e.closest('form'),
+            var $form = $e.attr('data-form') ? $('#' + $e.attr('data-form')) : $e.closest('form'),
+                method = !$e.data('method') && $form ? $form.attr('method') : $e.data('method'),
                 action = $e.attr('href'),
                 params = $e.data('params'),
                 pjax = $e.data('pjax'),
@@ -276,12 +276,28 @@ yii = (function ($) {
             if (pos < 0) {
                 return {};
             }
-            var qs = url.substring(pos + 1).split('&');
-            for (var i = 0, result = {}; i < qs.length; i++) {
-                qs[i] = qs[i].split('=');
-                result[decodeURIComponent(qs[i][0])] = decodeURIComponent(qs[i][1]);
+
+            var pairs = url.substring(pos + 1).split('&'),
+                params = {},
+                pair,
+                i;
+
+            for (i = 0; i < pairs.length; i++) {
+                pair = pairs[i].split('=');
+                var name = decodeURIComponent(pair[0]);
+                var value = decodeURIComponent(pair[1]);
+                if (name.length) {
+                    if (params[name] !== undefined) {
+                        if (!$.isArray(params[name])) {
+                            params[name] = [params[name]];
+                        }
+                        params[name].push(value || '');
+                    } else {
+                        params[name] = value || '';
+                    }
+                }
             }
-            return result;
+            return params;
         },
 
         initModule: function (module) {
@@ -308,7 +324,7 @@ yii = (function ($) {
     function initRedirectHandler() {
         // handle AJAX redirection
         $(document).ajaxComplete(function (event, xhr, settings) {
-            var url = xhr.getResponseHeader('X-Redirect');
+            var url = xhr && xhr.getResponseHeader('X-Redirect');
             if (url) {
                 window.location = url;
             }
@@ -329,9 +345,10 @@ yii = (function ($) {
         var handler = function (event) {
             var $this = $(this),
                 method = $this.data('method'),
-                message = $this.data('confirm');
+                message = $this.data('confirm'),
+                form = $this.data('form');
 
-            if (method === undefined && message === undefined) {
+            if (method === undefined && message === undefined && form === undefined) {
                 return true;
             }
 
